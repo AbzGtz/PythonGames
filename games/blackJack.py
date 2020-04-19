@@ -4,6 +4,7 @@ ace_values = {0:(0,0),1:(1,11),2:(2,12),3:(3,13),4:(4,14)}  #ace values based on
 card_suits = ("Hearts","Dimonds","Spades","Clubs")
 deck_of_cards = []
 black_jack_players = []
+TOLERANCE = 50.0  # % of total eiarnings on the table that the dealer will keep on playng for 
 num_players = 0
 
 #packages
@@ -21,10 +22,14 @@ def calculate_winnings():
 
     for player in (item for item in black_jack_players[1:] if item.is_active()):
         if not(player.is_bust()):
-            if dealer.get_black_jack_total() >= player.get_black_jack_total() and not(dealer.is_bust()):
+            if dealer.get_black_jack_total() > player.get_black_jack_total() and not(dealer.is_bust()):
                 player_status = "LOSS"
                 dealer_status = "WIN"
                 dealer_amount = player.get_current_bet()
+            elif dealer.get_black_jack_total() == player.get_black_jack_total():
+                player_status = "PUSH"
+                dealer_Status = "PUSH"
+                dealer_amount = 0
             else:
                 player_status = "WIN"
                 dealer_status = "LOSS"
@@ -36,18 +41,19 @@ def calculate_winnings():
 
         if player_status == "WIN":
             if dealer.is_bust():
-                output_string = "{} wins {} dollars with {} points vs {} who busts with {} points.".format(player.name,player.get_current_bet(),player.get_black_jack_total(),dealer.name,dealer.get_black_jack_total())
+                output_string = "{} wins ${} dollars with {} points vs {} who busts with {} points.".format(player.name,player.get_current_bet(),player.get_black_jack_total(),dealer.name,dealer.get_black_jack_total())
             else:
-                output_string = "{} wins {} dollars with {} points vs {} with {} points.".format(player.name,player.get_current_bet(),player.get_black_jack_total(),dealer.name,dealer.get_black_jack_total())
+                output_string = "{} wins ${} dollars with {} points vs {} with {} points.".format(player.name,player.get_current_bet(),player.get_black_jack_total(),dealer.name,dealer.get_black_jack_total())
+        elif player_status == "PUSH":
+            output_string = "For {} is a PUSH with the dealer with {} points".format(player.name,player.get_black_jack_total())
         else:
             if player.is_bust():
-                output_string = "{} busts with {} points.".format(player.name,player.get_black_jack_total()) 
+                output_string = "{} busts with {} points.".format(player.name,player.get_black_jack_total())
             else:
-                output_string = "{} lost with {} points vs {} with {} points.".format(player.name,player.get_black_jack_total(),dealer.name,dealer.get_black_jack_total())
+                output_string = "{} lost ${} dollars with {} points vs {} with {} points.".format(player.name,player.get_current_bet(), player.get_black_jack_total(),dealer.name,dealer.get_black_jack_total())
         print output_string
         player.update_moneys(player_status)
-        dealer.update_money_earnings(dealer_amount) 
-    
+        dealer.update_money_earnings(dealer_amount)
 
 def num_of_active_users():
     global black_jack_players
@@ -66,6 +72,8 @@ def increase_num_players():
 
 def build_deck():
     global card_values
+    global deck_of_cards
+    global deck_suits
 
     for suit in card_suits:
         for card in card_values.keys():
@@ -96,7 +104,7 @@ def get_percentage_win():
         total_bet = 1
         win_total = 1
     return (float(win_total)/total_bet)*100
-    
+
 def place_bets():
     global black_jack_players
     for player in black_jack_players[1:]:
@@ -129,13 +137,14 @@ def play_next_game():
             else:
                 print "{} You have no money left in the bank to play. Your final earings are {}".format(player.name, player.get_earnings())
                 player.inactivate()
-    
+
 def reset_deck():
     global deck_of_cards
     global black_jack_players
 
     deck_of_cards = []
     build_deck()
+    shuffle_deck()
     black_jack_players[0].reset_hand()
 
 def set_up_players():
@@ -244,10 +253,6 @@ class Player(Hand):
     def __str__(self):
         return "{} has {} left in the account. Earnings so far {}".format(self.name,self._money,self._earnings)
 
-    def update_money_earnings(self,amount):
-        self._money += amount
-        self._earnings += amount
-
     def bet(self,bet_amount):
         if bet_amount > self._money:
             print "You can't bet {}. You only have {} in your account.".format(bet_amount,self._money)
@@ -257,10 +262,16 @@ class Player(Hand):
             self._current_bet = bet_amount
         return bet_amount
 
+    def update_money_earnings(self,amount):
+        self._money += amount
+        self._earnings += amount
+
     def update_moneys(self,result):
         if result == "WIN":
             self._money += (self._current_bet)*2
             self._earnings += self._current_bet
+        elif result == 'PUSH':
+            self._money += (self._current_bet)
         else:
             self._earnings -= self._current_bet
         self._current_bet = 0
@@ -339,7 +350,7 @@ def play_the_game():
            print "\n"*100
            print "{}'s current hand with {} points:".format(dealer.name,dealer.get_black_jack_total())
            print dealer.show_hand()
-           if not(dealer.is_bust()) and get_percentage_win() <= 50.0:
+           if not(dealer.is_bust()) and get_percentage_win() < TOLERANCE:
                print "Dealer is getting a card ..." 
                time.sleep(3)
                deal_a_card(dealer)
